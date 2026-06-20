@@ -30,7 +30,12 @@ import {
   ChevronRight,
   Link as LinkIcon,
   Check,
-  Settings
+  Settings,
+  Database,
+  AlertTriangle,
+  Key,
+  EyeOff,
+  CheckCircle
 } from "lucide-react";
 import OrdersAdminView from "./OrdersAdminView";
 import ConsultationsAdminView from "./ConsultationsAdminView";
@@ -1187,6 +1192,21 @@ const SettingsAdminView = ({ adminPassword }: { adminPassword: string }) => {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
+  // Migration Assistant States
+  const [oldUrl, setOldUrl] = useState("");
+  const [oldKey, setOldKey] = useState("");
+  const [showKey, setShowKey] = useState(false);
+  const [migrating, setMigrating] = useState(false);
+  const [migMessage, setMigMessage] = useState("");
+  const [migSuccess, setMigSuccess] = useState<boolean | null>(null);
+  const [migCounts, setMigCounts] = useState<{
+    products: number;
+    packages: number;
+    junction: number;
+    blogs: number;
+  } | null>(null);
+  const [migErrors, setMigErrors] = useState<string[]>([]);
+
   useEffect(() => {
     fetchSettings();
   }, []);
@@ -1233,10 +1253,64 @@ const SettingsAdminView = ({ adminPassword }: { adminPassword: string }) => {
     }
   };
 
+  const handleMigrate = async () => {
+    if (!oldUrl.trim() || !oldKey.trim()) {
+      setMigMessage("Please provide both the Old Supabase URL and the Service Role Key.");
+      setMigSuccess(false);
+      return;
+    }
+
+    setMigrating(true);
+    setMigMessage("Connecting to old database and extracting tables...");
+    setMigSuccess(null);
+    setMigCounts(null);
+    setMigErrors([]);
+
+    try {
+      const res = await fetch("/api/admin/migrate-supabase", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-password": adminPassword
+        },
+        body: JSON.stringify({
+          oldSupabaseUrl: oldUrl.trim(),
+          oldSupabaseKey: oldKey.trim()
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setMigSuccess(true);
+        setMigMessage(data.message || "Automated migration finished successfully!");
+        setMigCounts(data.counts);
+        if (data.errors) {
+          setMigErrors(data.errors);
+        }
+        // Clear forms on successful migration for security
+        setOldUrl("");
+        setOldKey("");
+      } else {
+        setMigSuccess(false);
+        setMigMessage(data.error || "Migration failed. Please check your qualifications and retry.");
+        if (data.details) {
+          setMigErrors(Array.isArray(data.details) ? data.details : [data.details]);
+        }
+      }
+    } catch (error: any) {
+      console.error("Error running migration:", error);
+      setMigSuccess(false);
+      setMigMessage("Failed to communicate with migration assistant backend service.");
+    } finally {
+      setMigrating(false);
+    }
+  };
+
   if (loading) return <div className="flex justify-center p-12"><RefreshCw className="animate-spin text-slate-400" /></div>;
 
   return (
     <div className="max-w-2xl mx-auto space-y-8">
+      {/* 1. BANK SETTINGS */}
       <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm space-y-8">
         <div className="flex items-center justify-between">
           <h3 className="text-xl font-black text-slate-900 tracking-tight">Bank Transfer Details</h3>
@@ -1306,6 +1380,136 @@ const SettingsAdminView = ({ adminPassword }: { adminPassword: string }) => {
           >
             {saving ? <RefreshCw className="animate-spin" size={16} /> : <Save size={16} />}
             Save Settings
+          </button>
+        </div>
+      </div>
+
+      {/* 2. AUTOMATED DATABASE MIGRATION ASSISTANT */}
+      <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm space-y-8">
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <h3 className="text-xl font-black text-slate-900 tracking-tight">One-Click Migration Assistant</h3>
+            <span className="text-[9px] bg-indigo-100 text-indigo-700 font-black px-2 py-0.5 rounded-full uppercase tracking-widest">Fully Automated</span>
+          </div>
+          <Database className="text-slate-300" size={24} />
+        </div>
+
+        <p className="text-xs text-slate-500 font-medium leading-relaxed">
+          Need to populate GHT wellness store quickly? Paste the connection link and secret role key of your old active database below. The custom backend crawler will securely copy products, packages, relationships, and blog posts directly to your new database in under 5 seconds.
+        </p>
+
+        <div className="space-y-6">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Old Supabase Project URL</label>
+              <span className="text-[9px] text-slate-400 font-bold font-mono">https://*.supabase.co</span>
+            </div>
+            <input 
+              type="text"
+              value={oldUrl}
+              onChange={e => setOldUrl(e.target.value)}
+              className="w-full h-14 bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 font-bold text-slate-950 focus:border-indigo-500 outline-none transition-all font-mono text-sm"
+              placeholder="e.g. https://your-old-project.supabase.co"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Old Service Role Key (service_role)</label>
+              <span className="text-[9px] text-red-500 font-black uppercase tracking-widest">Secret Admin key</span>
+            </div>
+            <div className="relative">
+              <input 
+                type={showKey ? "text" : "password"}
+                value={oldKey}
+                onChange={e => setOldKey(e.target.value)}
+                className="w-full h-14 bg-slate-50 border-2 border-slate-100 rounded-2xl pl-6 pr-14 font-bold text-slate-950 focus:border-indigo-500 outline-none transition-all font-mono text-sm"
+                placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ey..."
+              />
+              <button 
+                type="button"
+                onClick={() => setShowKey(!showKey)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                {showKey ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+          </div>
+
+          {/* Tips block */}
+          <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 text-[11px] text-slate-500 space-y-2">
+            <div className="flex items-center gap-2 font-bold text-slate-700">
+              <Key size={14} className="text-slate-400" />
+              <span>Where do I find these credentials?</span>
+            </div>
+            <p className="leading-relaxed">
+              Log into your old Supabase Workspace, go to <b>Project Settings → API</b>, and copy the <b>Project URL</b> along with the <b>service_role</b> secret key (reveal and copy). 
+              <i> Note: The testimonials list is completely ignored as they are hardcoded statically for maximal speed.</i>
+            </p>
+          </div>
+
+          {/* Execution Status Feedback */}
+          {migMessage && (
+            <div className={`p-5 rounded-2xl border flex flex-col gap-3 ${
+              migSuccess === true ? 'bg-emerald-50/50 border-emerald-100 text-emerald-800' : 
+              migSuccess === false ? 'bg-rose-50/50 border-rose-100 text-rose-800' : 
+              'bg-indigo-50/50 border-indigo-100 text-indigo-800'
+            }`}>
+              <div className="flex items-center gap-3">
+                {migSuccess === true ? <CheckCircle size={18} className="text-emerald-600 shrink-0" /> : 
+                 migSuccess === false ? <AlertTriangle size={18} className="text-rose-600 shrink-0" /> : 
+                 <RefreshCw size={18} className="animate-spin text-indigo-600 shrink-0" />}
+                <p className="text-xs font-bold leading-normal">{migMessage}</p>
+              </div>
+
+              {/* Dynamic summary stats on success */}
+              {migSuccess === true && migCounts && (
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  <div className="bg-white/85 p-3 rounded-xl border border-emerald-100/60 flex flex-col">
+                    <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Products</span>
+                    <span className="text-lg font-black text-slate-900">{migCounts.products} <span className="text-xs text-slate-400 font-medium">copied</span></span>
+                  </div>
+                  <div className="bg-white/85 p-3 rounded-xl border border-emerald-100/60 flex flex-col">
+                    <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Packages & Combos</span>
+                    <span className="text-lg font-black text-slate-900">{migCounts.packages} <span className="text-xs text-slate-400 font-medium">copied</span></span>
+                  </div>
+                  <div className="bg-white/85 p-3 rounded-xl border border-emerald-100/60 flex flex-col">
+                    <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Package Relations</span>
+                    <span className="text-lg font-black text-slate-900">{migCounts.junction} <span className="text-xs text-slate-400 font-medium">linked</span></span>
+                  </div>
+                  <div className="bg-white/85 p-3 rounded-xl border border-emerald-100/60 flex flex-col">
+                    <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Blogs</span>
+                    <span className="text-lg font-black text-slate-900">{migCounts.blogs} <span className="text-xs text-slate-400 font-medium">copied</span></span>
+                  </div>
+                </div>
+              )}
+
+              {/* Dynamic error listing */}
+              {migErrors.length > 0 && (
+                <div className="pt-2 text-[10px] font-mono leading-relaxed space-y-1">
+                  <p className="font-bold uppercase tracking-wider text-slate-500">Error Details:</p>
+                  <ul className="list-disc pl-4 space-y-0.5">
+                    {migErrors.slice(0, 5).map((err, i) => (
+                      <li key={i} className="text-rose-600 font-medium">{err}</li>
+                    ))}
+                    {migErrors.length > 5 && (
+                      <li className="text-slate-400 font-medium">And {migErrors.length - 5} more logging warnings...</li>
+                    )}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="pt-4 flex items-center justify-end">
+          <button 
+            onClick={handleMigrate}
+            disabled={migrating || !oldUrl || !oldKey}
+            className="bg-indigo-600 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-3 hover:bg-indigo-700 disabled:hover:bg-indigo-600 transition-all shadow-xl shadow-indigo-100 disabled:opacity-50"
+          >
+            {migrating ? <RefreshCw className="animate-spin" size={16} /> : <Database size={16} />}
+            Start Automated Transfer
           </button>
         </div>
       </div>

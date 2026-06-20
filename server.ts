@@ -302,6 +302,221 @@ export async function createServer() {
     res.json({ success: true });
   });
 
+  // Supabase Database Migration Assistant API
+  app.post("/api/admin/migrate-supabase", adminAuth, async (req, res) => {
+    if (!supabase) return res.status(500).json({ error: "Local Database not initialized" });
+    
+    const { oldSupabaseUrl, oldSupabaseKey } = req.body;
+    if (!oldSupabaseUrl || !oldSupabaseKey) {
+      return res.status(400).json({ error: "Old Supabase URL and Service Role Key are required." });
+    }
+
+    try {
+      const { createClient } = await import("@supabase/supabase-js");
+      const oldSupabase = createClient(oldSupabaseUrl, oldSupabaseKey, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      });
+
+      const errors: string[] = [];
+      const counts = {
+        products: 0,
+        packages: 0,
+        junction: 0,
+        blogs: 0
+      };
+
+      // 1. Fetch data from old database
+      const { data: oldProducts, error: prodErr } = await oldSupabase
+        .from("products")
+        .select("*");
+      
+      if (prodErr) {
+        errors.push(`Failed to fetch Products from old database: ${prodErr.message}`);
+      }
+
+      const { data: oldPackages, error: packErr } = await oldSupabase
+        .from("recommended_packages")
+        .select("*");
+
+      if (packErr) {
+        errors.push(`Failed to fetch Packages from old database: ${packErr.message}`);
+      }
+
+      const { data: oldJunction, error: juncErr } = await oldSupabase
+        .from("package_products")
+        .select("*");
+
+      if (juncErr) {
+        errors.push(`Failed to fetch Package-Product links from old database: ${juncErr.message}`);
+      }
+
+      const { data: oldBlogs, error: blogErr } = await oldSupabase
+        .from("blog_posts")
+        .select("*");
+
+      if (blogErr) {
+        errors.push(`Failed to fetch Blog Posts from old database: ${blogErr.message}`);
+      }
+
+      // If we could not fetch anything at all, return an error
+      if (errors.length > 0 && !oldProducts && !oldPackages && !oldJunction && !oldBlogs) {
+        return res.status(400).json({ 
+          error: "Could not fetch any tables from the provided database. Verify the URL and Service Role Key.", 
+          details: errors 
+        });
+      }
+
+      // 1.5 Clear any existing template products/packages/blogs/orders inside the destination DB to preserve pristine IDs and avoid UNIQUE or FOREIGN KEY constraints violations
+      try {
+        await supabase.from("package_products").delete().neq("package_id", "00000000-0000-0000-0000-000000000000");
+        await supabase.from("blog_posts").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+        await supabase.from("order_items").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+        await supabase.from("orders").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+        await supabase.from("consultations").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+        await supabase.from("recommended_packages").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+        await supabase.from("products").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+      } catch (cleanError: any) {
+        console.warn("Clean reset warn:", cleanError);
+        errors.push(`Pre-migration table cleaning warning: ${cleanError?.message || cleanError}`);
+      }
+
+      // 2. Perform upserts into new database in order of dependencies (FKeys)
+
+      // A. PRODUCTS
+      if (oldProducts && oldProducts.length > 0) {
+        const cleanProducts = oldProducts.map((p: any) => ({
+          id: p.id,
+          product_code: p.product_code || `PROD-${p.id.slice(0, 8)}`,
+          name: p.name,
+          short_desc: p.short_desc,
+          long_desc: p.long_desc,
+          health_benefits: Array.isArray(p.health_benefits) ? p.health_benefits : [],
+          package: p.package,
+          usage: p.usage,
+          ingredients: p.ingredients,
+          warning: p.warning,
+          price_naira: Number(p.price_naira) || 0,
+          discount_percent: Number(p.discount_percent) || 0,
+          nafdac_no: p.nafdac_no,
+          image_url: p.image_url,
+          image_desc_url: p.image_desc_url,
+          stock_quantity: p.stock_quantity !== undefined ? Number(p.stock_quantity) : 100,
+          created_at: p.created_at || new Date().toISOString(),
+          updated_at: p.updated_at || new Date().toISOString()
+        }));
+
+        const { error: localProdErr } = await supabase
+          .from("products")
+          .upsert(cleanProducts, { onConflict: "id" });
+
+        if (localProdErr) {
+          errors.push(`Products upsert failed: ${localProdErr.message}`);
+        } else {
+          counts.products = cleanProducts.length;
+        }
+      }
+
+      // B. RECOMMENDED PACKAGES
+      if (oldPackages && oldPackages.length > 0) {
+        const cleanPackages = oldPackages.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          description: p.description,
+          price: Number(p.price) || 0,
+          discount: Number(p.discount) || 0,
+          package_image_url: p.package_image_url,
+          health_benefits: Array.isArray(p.health_benefits) ? p.health_benefits : [],
+          symptoms: Array.isArray(p.symptoms) ? p.symptoms : [],
+          package_code: p.package_code || `PKG-${p.id.slice(0, 8)}`,
+          is_combo: p.is_combo === true || p.is_combo === 'true' || p.is_combo === 1,
+          options: p.options || [],
+          created_at: p.created_at || new Date().toISOString(),
+          updated_at: p.updated_at || new Date().toISOString()
+        }));
+
+        const { error: localPackErr } = await supabase
+          .from("recommended_packages")
+          .upsert(cleanPackages, { onConflict: "id" });
+
+        if (localPackErr) {
+          errors.push(`Packages upsert failed: ${localPackErr.message}`);
+        } else {
+          counts.packages = cleanPackages.length;
+        }
+      }
+
+      // C. PACKAGE PRODUCTS
+      if (oldJunction && oldJunction.length > 0) {
+        const cleanJunction = oldJunction
+          .filter((j: any) => j.package_id && j.product_id)
+          .map((j: any) => ({
+            package_id: j.package_id,
+            product_id: j.product_id
+          }));
+
+        if (cleanJunction.length > 0) {
+          const { error: localJuncErr } = await supabase
+            .from("package_products")
+            .upsert(cleanJunction, { onConflict: "package_id,product_id" });
+
+          if (localJuncErr) {
+            errors.push(`Package-Product relationships upsert failed: ${localJuncErr.message}`);
+          } else {
+            counts.junction = cleanJunction.length;
+          }
+        }
+      }
+
+      // D. BLOG POSTS
+      if (oldBlogs && oldBlogs.length > 0) {
+        const cleanBlogs = oldBlogs.map((b: any) => ({
+          id: b.id,
+          title: b.title,
+          slug: b.slug || b.id,
+          content: b.content,
+          meta_description: b.meta_description,
+          category: b.category,
+          tags: Array.isArray(b.tags) ? b.tags : [],
+          image_url: b.image_url,
+          recommended_package_id: b.recommended_package_id || null,
+          created_at: b.created_at || new Date().toISOString(),
+          updated_at: b.updated_at || new Date().toISOString()
+        }));
+
+        const { error: localBlogErr } = await supabase
+          .from("blog_posts")
+          .upsert(cleanBlogs, { onConflict: "id" });
+
+        if (localBlogErr) {
+          errors.push(`Blogs upsert failed: ${localBlogErr.message}`);
+        } else {
+          counts.blogs = cleanBlogs.length;
+        }
+      }
+
+      if (errors.length > 0 && counts.products === 0 && counts.packages === 0 && counts.blogs === 0) {
+        return res.status(500).json({ 
+          error: "Migration failed to store retrieved records dynamically.", 
+          details: errors 
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: "Automated migration finished completely and records successfully saved!",
+        counts,
+        errors: errors.length > 0 ? errors : undefined
+      });
+
+    } catch (err: any) {
+      console.error("Migration fatal error:", err);
+      return res.status(500).json({ error: "Fatal execution error", details: err.message });
+    }
+  });
+
   // Generic Admin GET
   app.get("/api/admin/:table", adminAuth, async (req, res) => {
     if (!supabase) return res.status(503).json({ error: "Database not configured" });
