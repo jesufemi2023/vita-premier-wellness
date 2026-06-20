@@ -1287,6 +1287,17 @@ const SettingsAdminView = ({ adminPassword }: { adminPassword: string }) => {
         if (data.errors) {
           setMigErrors(data.errors);
         }
+        
+        // Evict local client storage cache keys to force fresh UI data pulling
+        try {
+          localStorage.removeItem("ght_cache_products");
+          localStorage.removeItem("ght_cache_packages");
+          localStorage.removeItem("ght_cache_last_sync");
+          localStorage.removeItem("ght_cache_metadata");
+        } catch (storageErr) {
+          console.warn("Could not sweep local storage cache:", storageErr);
+        }
+
         // Clear forms on successful migration for security
         setOldUrl("");
         setOldKey("");

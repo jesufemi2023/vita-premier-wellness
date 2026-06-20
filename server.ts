@@ -504,6 +504,8 @@ export async function createServer() {
         });
       }
 
+      await updateSyncTimestamp();
+
       return res.json({
         success: true,
         message: "Automated migration finished completely and records successfully saved!",

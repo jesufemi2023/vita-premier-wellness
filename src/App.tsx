@@ -241,8 +241,10 @@ export default function App() {
       // 2. Check if cache is valid in background
       const isValid = await CacheService.isCacheValid();
       
-      if (!isValid || !cachedProducts || !cachedPackages) {
-        // Cache is stale or missing, fetch fresh data
+      const isCacheEmpty = !cachedProducts || cachedProducts.length === 0 || !cachedPackages || cachedPackages.length === 0;
+      
+      if (!isValid || isCacheEmpty) {
+        // Cache is stale, missing, or empty, fetch fresh data
         fetchProducts();
         fetchRecommendedPackages();
       }
