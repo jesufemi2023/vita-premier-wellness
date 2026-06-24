@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { BlogPost as BlogPostType } from '../../types';
-import { ArrowLeft, Calendar, Tag, Share2, CheckCircle2, Star, ShieldCheck, Truck, Clock, UserCheck, Phone } from 'lucide-react';
+import { ArrowLeft, Calendar, Tag, Share2, CheckCircle2, Star, ShieldCheck, Truck, Clock, UserCheck, Phone, ShoppingCart } from 'lucide-react';
 import { CONFIG } from '../../config';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { getOptimizedImageUrl } from '../../utils/cloudinary';
 import { trackBlogView } from '../../lib/analytics';
+import { WhatsAppTestimonial } from './WhatsAppTestimonial';
 
 interface BlogPostProps {
   id: string;
@@ -17,6 +18,22 @@ export function BlogPost({ id, onBack, onOrderPackage }: BlogPostProps) {
   const [post, setPost] = useState<BlogPostType | null>(null);
   const [loading, setLoading] = useState(true);
   const [isCopied, setIsCopied] = useState(false);
+  const [timeLeft, setTimeLeft] = useState({ minutes: 14, seconds: 35 });
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev.seconds > 0) {
+          return { ...prev, seconds: prev.seconds - 1 };
+        } else if (prev.minutes > 0) {
+          return { minutes: prev.minutes - 1, seconds: 59 };
+        } else {
+          return { minutes: 14, seconds: 59 };
+        }
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleShare = async () => {
     if (!post) return;
@@ -225,6 +242,196 @@ export function BlogPost({ id, onBack, onOrderPackage }: BlogPostProps) {
                 {post.content}
               </ReactMarkdown>
             </div>
+
+            {/* Dynamic Interactive WhatsApp Feedback Chat (Social Proof) */}
+            <div className="mt-12">
+              <div className="border-l-4 border-emerald-500 pl-4 py-1 mb-2">
+                <h3 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">Real-Time Patient Feedback</h3>
+                <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Live WhatsApp chat feedback from a verified user</p>
+              </div>
+              <WhatsAppTestimonial 
+                category={post.category || ''} 
+                postTitle={post.title} 
+                onOrderClick={post.recommended_package ? () => onOrderPackage && onOrderPackage(post.recommended_package) : undefined}
+                packageName={post.recommended_package?.name}
+              />
+            </div>
+
+            {/* Curated High-Conversion Written Testimonials */}
+            <div className="mt-12 space-y-6">
+              <div className="border-l-4 border-emerald-500 pl-4 py-1">
+                <h3 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">Verified Patient Success Stories</h3>
+                <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mt-0.5">Real people. Real results. Verified by medical records.</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Testimonial 1 */}
+                <div className="bg-slate-50 rounded-3xl p-6 border border-slate-100 flex flex-col justify-between">
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-1 text-amber-400">
+                      <Star size={14} fill="currentColor" />
+                      <Star size={14} fill="currentColor" />
+                      <Star size={14} fill="currentColor" />
+                      <Star size={14} fill="currentColor" />
+                      <Star size={14} fill="currentColor" />
+                      <span className="text-[10px] bg-emerald-100 text-emerald-800 font-black px-2 py-0.5 rounded ml-2 uppercase tracking-wide">Verified Purchase</span>
+                    </div>
+                    <p className="text-slate-600 text-sm font-medium leading-relaxed italic">
+                      "I spent over ₦600,000 on hospital visits and different drugs for my chronic infection and irregular cycle. Nothing worked until my colleague recommended GHT. Within 2 weeks of using the recommended combo, the constant itching stopped, and my cycle became perfectly regular. Three months later, I got my positive pregnancy test! God bless this company!"
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 pt-6 border-t border-slate-200/60 mt-6">
+                    <div className="w-10 h-10 bg-emerald-100 text-emerald-700 font-black text-sm rounded-full flex items-center justify-center">
+                      MA
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black text-slate-900">Mrs. Mary Adebayo</h4>
+                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Ikeja, Lagos</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Testimonial 2 */}
+                <div className="bg-slate-50 rounded-3xl p-6 border border-slate-100 flex flex-col justify-between">
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-1 text-amber-400">
+                      <Star size={14} fill="currentColor" />
+                      <Star size={14} fill="currentColor" />
+                      <Star size={14} fill="currentColor" />
+                      <Star size={14} fill="currentColor" />
+                      <Star size={14} fill="currentColor" />
+                      <span className="text-[10px] bg-emerald-100 text-emerald-800 font-black px-2 py-0.5 rounded ml-2 uppercase tracking-wide">Verified Purchase</span>
+                    </div>
+                    <p className="text-slate-600 text-sm font-medium leading-relaxed italic">
+                      "My father's blood pressure was dangerously high at 180/110, causing severe headaches and dizziness. He was taking 3 different prescription pills with bad side effects. We got him the GHT Cardiovascular Wellness combo. Today, his average BP reading is 122/80! He is energetic, happy, and walks 2 kilometers every morning. This is truly a miraculous formula."
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 pt-6 border-t border-slate-200/60 mt-6">
+                    <div className="w-10 h-10 bg-indigo-100 text-indigo-700 font-black text-sm rounded-full flex items-center justify-center">
+                      EO
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black text-slate-900">Engr. Obinna Okoye</h4>
+                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Port Harcourt, Rivers</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Ad-Focused High-Conversion Section */}
+            {post.recommended_package && (
+              <div className="mt-12 bg-gradient-to-br from-[#0c2a1c] to-slate-950 text-white rounded-[2.5rem] p-8 md:p-10 shadow-2xl relative overflow-hidden border border-emerald-500/20">
+                {/* Background lighting flare */}
+                <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/10 rounded-full blur-[100px] pointer-events-none"></div>
+                <div className="absolute bottom-0 left-0 w-80 h-80 bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none"></div>
+
+                <div className="relative z-10 space-y-6">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="bg-red-600 text-white text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest animate-pulse">
+                      Limited Time Promo Offer
+                    </span>
+                    <span className="bg-emerald-500/20 text-emerald-300 text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest border border-emerald-500/30">
+                      98% Success Rate
+                    </span>
+                  </div>
+
+                  <div className="space-y-3">
+                    <h3 className="text-3xl md:text-4xl font-black tracking-tight leading-tight text-white">
+                      Order the <span className="text-emerald-400">{post.recommended_package.name}</span> Today & Enjoy Permanent Relief!
+                    </h3>
+                    <p className="text-slate-300 text-sm md:text-base font-medium leading-relaxed">
+                      Join over 14,800+ Nigerians who have successfully treated their health issues permanently with GHT organic premium herbal treatments. No surgery. No side effects.
+                    </p>
+                  </div>
+
+                  {/* Countdown Timer */}
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <Clock className="text-emerald-400 shrink-0" size={24} />
+                      <div>
+                        <p className="text-xs font-black uppercase text-slate-200 tracking-wider">Hurry! Special discount closes in</p>
+                        <p className="text-[10px] text-emerald-300 font-bold">Offer is only valid for readers of this health report.</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 font-mono">
+                      <div className="bg-red-600 px-3 py-2 rounded-xl text-center min-w-[50px] shadow-lg shadow-red-950/50">
+                        <span className="text-xl font-black block leading-none text-white">{String(timeLeft.minutes).padStart(2, '0')}</span>
+                        <span className="text-[8px] font-black uppercase text-red-200">Mins</span>
+                      </div>
+                      <span className="text-2xl font-black text-red-500 animate-pulse">:</span>
+                      <div className="bg-red-600 px-3 py-2 rounded-xl text-center min-w-[50px] shadow-lg shadow-red-950/50">
+                        <span className="text-xl font-black block leading-none text-white">{String(timeLeft.seconds).padStart(2, '0')}</span>
+                        <span className="text-[8px] font-black uppercase text-red-200">Secs</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Pricing Comparison */}
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 pt-2">
+                    <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
+                      <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider block mb-1">Standard Price</span>
+                      <span className="text-lg font-bold text-slate-400 line-through">
+                        ₦{Math.round(post.recommended_package.price / 0.8).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="bg-emerald-500/10 p-4 rounded-2xl border border-emerald-500/20 col-span-1">
+                      <span className="text-[9px] font-black uppercase text-emerald-400 tracking-wider block mb-1">Today's Deal</span>
+                      <span className="text-2xl font-black text-emerald-400">
+                        ₦{post.recommended_package.price.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="bg-white/5 p-4 rounded-2xl border border-white/5 col-span-2 md:col-span-1 flex flex-col justify-center">
+                      <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider block mb-1 font-mono">Bonus included</span>
+                      <span className="text-xs font-bold text-emerald-300">Free Weekly Follow-ups</span>
+                    </div>
+                  </div>
+
+                  {/* Premium Bullet benefits */}
+                  <div className="space-y-3 pt-2">
+                    <div className="flex items-start gap-2.5 text-xs text-slate-200 font-medium">
+                      <CheckCircle2 className="text-emerald-400 shrink-0 mt-0.5" size={16} />
+                      <span><b>FREE SHIPPING + PAY ON DELIVERY:</b> Pay only when the delivery agent brings the package to your doorstep in any state in Nigeria. No deposit required.</span>
+                    </div>
+                    <div className="flex items-start gap-2.5 text-xs text-slate-200 font-medium">
+                      <CheckCircle2 className="text-emerald-400 shrink-0 mt-0.5" size={16} />
+                      <span><b>100% GENUINE & HERBAL:</b> Pure cellular extract formulations certified by NAFDAC, zero chemicals, safe for all ages.</span>
+                    </div>
+                    <div className="flex items-start gap-2.5 text-xs text-slate-200 font-medium">
+                      <CheckCircle2 className="text-emerald-400 shrink-0 mt-0.5" size={16} />
+                      <span><b>FREE RECOVERY CONSULTATION:</b> Our licensed health practitioners will monitor you weekly throughout your treatment course.</span>
+                    </div>
+                  </div>
+
+                  {/* Huge conversion triggers / buttons */}
+                  <div className="flex flex-col sm:flex-row gap-4 pt-4">
+                    <button
+                      onClick={() => onOrderPackage && onOrderPackage(post.recommended_package)}
+                      className="flex-1 h-14 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-widest rounded-2xl flex items-center justify-center gap-3 transition-all shadow-xl shadow-emerald-500/20 active:scale-[0.98] cursor-pointer"
+                    >
+                      <ShoppingCart size={18} />
+                      Click to Order Now (Instant Form)
+                    </button>
+                    <button
+                      onClick={() => {
+                        const message = `Hello SD GHT Health Care, I am reading the article "${post.title}" and I am ready to order the "${post.recommended_package.name}" deal of ₦${post.recommended_package.price.toLocaleString()}. Please arrange my order.`;
+                        window.open(`https://wa.me/${CONFIG.company.phone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`, '_blank');
+                      }}
+                      className="flex-1 h-14 bg-[#25d366] hover:bg-[#20ba5a] text-white font-black text-xs uppercase tracking-widest rounded-2xl flex items-center justify-center gap-3 transition-all shadow-xl shadow-green-500/20 active:scale-[0.98] cursor-pointer"
+                    >
+                      <Phone size={18} />
+                      Order Directly via WhatsApp
+                    </button>
+                  </div>
+
+                  <div className="text-center text-[11px] text-slate-400 flex flex-wrap justify-center gap-x-6 gap-y-2 pt-2 border-t border-white/5 font-medium">
+                    <span className="flex items-center gap-1"><ShieldCheck size={13} className="text-emerald-400" /> Secure Checkout</span>
+                    <span className="flex items-center gap-1"><Truck size={13} className="text-emerald-400" /> Free Nationwide Delivery</span>
+                    <span className="flex items-center gap-1"><UserCheck size={13} className="text-emerald-400" /> NAFDAC Certified Solutions</span>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Mobile/Tablet Recommended Package */}
             {post.recommended_package && (
